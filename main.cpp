@@ -154,10 +154,15 @@ int main(int argc, char *argv[])
     char *dev = argv[1];
     string essid_file = argv[2];
 
+    vector<string> fake_essids = read_essids_from_file(essid_file);
+    if (fake_essids.empty())
+    {
+        cerr << "ESSID list is empty or file not found: " << essid_file << endl;
+        return -1;
+    }
+
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
-    // pcap_t *handle = pcap_open_offline("./pcapdir/beacon-a2000ua-testap5g.pcap", errbuf);
-    // pcap_t *handle = pcap_open_offline("./pcapdir/dot11-sample.pcap", errbuf);
 
     if (handle == nullptr)
     {
@@ -165,8 +170,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    string fakestr1 = "hello, I'm bob";
-    // string fakestr2 = "bob";
+    size_t essid_index = 0;
 
     struct pcap_pkthdr *
         header;
@@ -193,7 +197,9 @@ int main(int argc, char *argv[])
 
         if (check_beacon_frame(reinterpret_cast<const uint8_t *>(radiotap_hdr) + (radiotap_hdr->it_len), header->caplen - (radiotap_hdr->it_len)))
         {
-            beacon_process(radiotap_hdr, header, fakestr1);
+            string current_fake_essid = fake_essids[essid_index % fake_essids.size()];
+            beacon_process(radiotap_hdr, header, current_fake_essid);
+            essid_index++;
         }
         else
         {
@@ -205,6 +211,8 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Error sending the packet: %s\n", pcap_geterr(handle));
         }
     }
+
+    pcap_close(handle);
 
     return 0;
 }
